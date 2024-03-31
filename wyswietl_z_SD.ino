@@ -55,7 +55,7 @@ void setup()
 	}
 	root = SD.open(namebuf);
 	pathlen = strlen(namebuf);
-	convertBmpToGbu();
+	//convertBmpToGbu();
 }
 
 void loop()
@@ -146,8 +146,8 @@ uint8_t showGBU(char *nm, int x, int y)
 	File file = SD.open(nm);
 
 	// Read the header
-	bmpWidth = read16(file);
 	bmpHeight = read16(file);
+	bmpWidth = read16(file);
 	read16(file);
 	bmpDepth = read16(file);
 	bmpOffset = read16(file);
@@ -178,10 +178,6 @@ uint8_t showGBU(char *nm, int x, int y)
 		for (; col < w; col++)
 		{
 			tft.pushColors(&sdbuffer[col], 1, first);
-			// Serial.println(F("column"));
-			// Serial.println(col, DEC);
-			// Serial.println(F("row"));
-			// Serial.println(row, DEC);
 		}
 	}
 
@@ -214,14 +210,13 @@ void convertBmpToGbu()
 		{
 			Serial.println(F("Converting BMP to GBU: "));
 			// Read the BMP header
-			// Read the BMP header
 			uint8_t bmpHeader[54];
 			bmpFile.read(bmpHeader, sizeof(bmpHeader));
 
 			// Extract the BMP width, height, and depth from the header
 			uint16_t bmpWidth = *(uint16_t *)(bmpHeader + 18);
 			uint16_t bmpHeight = *(uint16_t *)(bmpHeader + 22);
-			uint16_t bmpDepth = *(uint8_t *)(bmpHeader + 28);
+			uint16_t bmDepth = *(uint8_t *)(bmpHeader + 28);
 
 			// Calculate the offset where the pixel data starts
 			uint32_t bmpOffset = *(uint32_t *)(bmpHeader + 10);
@@ -253,55 +248,54 @@ void convertBmpToGbu()
 				(uint16_t)bmpHeight,
 				0,
 				gbuColorDepht,
-				gbuOffset, // offset to the first pixel data
 				0,
+				gbuOffset, // offset to the first pixel data
 				0,
 				0,
 				0,
 				0};
 			gbuFile.write(gbuHeader, sizeof(gbuHeader));
 
-			for (int row = bmpHeight - 1; row >= 0; row--)
+			// Create a buffer to hold the converted pixel data
+			uint8_t *bmpData = new uint8_t[bmpWidth * 3];
+			uint16_t *gbuData = new uint16_t[bmpWidth];
+
+			uint16_t rowsLeft = bmpHeight;
+
+			while (rowsLeft--)
 			{
-				// Calculate the offset to the pixel data for this row
-				int offset = row * bmpWidth * 3;
+				bmpFile.seek(bmpOffset + rowsLeft * bmpWidth * 3);
+				bmpFile.read(bmpData, bmpWidth * 3);
 
-				// Create a buffer to hold the converted pixel data
-				uint16_t *bmpData = new uint16_t[bmpWidth];
+				int p = 0;
 
-				// Seek to the pixel data for this row
-				bmpFile.seek(bmpOffset + offset);
-
-				// Convert the pixel data from 24-bit to 16-bit
-				for (int i = 0; i < bmpWidth; i++) // little-endian (bgr)
+				for (int col = 0; col < bmpWidth; col++) // Dodatkowa pętla for
 				{
-					uint8_t rgb[3];
-					bmpFile.read(rgb, 3);
-					uint8_t r = rgb[0];
-					uint8_t g = rgb[1];
-					uint8_t b = rgb[2];
-					uint16_t color = ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | ((b & 0xF8) >> 3);
 
-					bmpData[i] = color;
-					// Serial.println(F("writing !"));
-					// Serial.println("writing done!");
-					// Serial.println(i, DEC);
-					// Serial.println(F("Row done!"));
+					uint8_t r = bmpData[col];	  // 00000000
+					uint8_t g = bmpData[col + 1]; // 00000000
+					uint8_t b = bmpData[col + 2]; // 11111111
+
+					gbuData[p] = ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3);
+					p++;
 				}
-				gbuFile.write((uint8_t *)bmpData, bmpWidth * 2);
-				delete[] bmpData;
-				Serial.println(row, DEC);
+				gbuFile.write((uint8_t *)gbuData, bmpWidth * 2);
+				Serial.println(F("writing row!"));
+				Serial.println(rowsLeft, DEC);
+				Serial.println(F("\n"));
 			}
+			delete[] bmpData;
+			delete[] gbuData;
 
 			bmpFile.close();
 			// Close the GBU file
 			gbuFile.close();
-
-			// Delete the original BMP file
-			SD.remove(bmpFileName);
-
-			// Free the memory allocated for the buffers
-			Serial.println(F("Conversion done!"));
 		}
+
+		// Delete the original BMP file
+		SD.remove(bmpFileName);
+
+		// Free the memory allocated for the buffers
+		Serial.println(F("Conversion done!"));
 	}
 }
