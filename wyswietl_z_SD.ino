@@ -146,8 +146,8 @@ uint8_t showGBU(char *nm, int x, int y)
 	File file = SD.open(nm);
 
 	// Read the header
-	bmpHeight = read16(file);
 	bmpWidth = read16(file);
+	bmpHeight = read16(file);
 	read16(file);
 	bmpDepth = read16(file);
 	bmpOffset = read16(file);
@@ -178,6 +178,10 @@ uint8_t showGBU(char *nm, int x, int y)
 		for (; col < w; col++)
 		{
 			tft.pushColors(&sdbuffer[col], 1, first);
+			// Serial.println(F("column"));
+			// Serial.println(col, DEC);
+			// Serial.println(F("row"));
+			// Serial.println(row, DEC);
 		}
 	}
 
@@ -215,8 +219,8 @@ void convertBmpToGbu()
 			bmpFile.read(bmpHeader, sizeof(bmpHeader));
 
 			// Extract the BMP width, height, and depth from the header
-			uint16_t bmpWidth = *(uint16_t *)(bmpHeader + 22);
-			uint16_t bmpHeight = *(uint16_t *)(bmpHeader + 18);
+			uint16_t bmpWidth = *(uint16_t *)(bmpHeader + 18);
+			uint16_t bmpHeight = *(uint16_t *)(bmpHeader + 22);
 			uint16_t bmpDepth = *(uint8_t *)(bmpHeader + 28);
 
 			// Calculate the offset where the pixel data starts
@@ -278,36 +282,15 @@ void convertBmpToGbu()
 					uint8_t b = rgb[2];
 					uint16_t color = ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | ((b & 0xF8) >> 3);
 
-					// bmpData[i] = (r << 11) | (g << 5) | b;
-					gbuFile.write((uint8_t *)&color, sizeof(color));
+					bmpData[i] = color;
+					// Serial.println(F("writing !"));
+					// Serial.println("writing done!");
+					// Serial.println(i, DEC);
+					// Serial.println(F("Row done!"));
 				}
-
-				// for (int i = 0; i < bmpWidth; i++) // little-endian (bgr)
-				// {
-				// 	uint8_t rgb[3];
-				// 	bmpFile.read(rgb, 3);
-
-				// 	uint16_t r = rgb[0] >> 3;
-				// 	uint16_t g = rgb[1] >> 2;
-				// 	uint16_t b = rgb[2] >> 3;
-
-				// 	bmpData[i] = (r << 11) | (g << 5) | b;
-				// }
-				// for (int i = 0; i < bmpWidth; i++) // big-endian (rgb)
-				// {
-				// 	uint8_t rgb[3];
-				// 	bmpFile.read(rgb, 3);
-
-				// 	uint16_t b = rgb[0] >> 3;
-				// 	uint16_t g = rgb[1] >> 2;
-				// 	uint16_t r = rgb[2] >> 3;
-
-				// 	bmpData[i] = (r << 11) | (g << 5) | b;
-				// }
-
-				// Write the converted pixel data to the GBU file
-
+				gbuFile.write((uint8_t *)bmpData, bmpWidth * 2);
 				delete[] bmpData;
+				Serial.println(row, DEC);
 			}
 
 			bmpFile.close();
